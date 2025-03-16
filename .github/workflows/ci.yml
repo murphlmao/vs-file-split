@@ -1,0 +1,77 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.1'
+
+      - name: Install dependencies
+        run: go mod tidy
+
+      - name: Run tests
+        run: go test ./src/internal/...
+
+  build:
+    name: Build and Release
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.1'
+
+      - name: Build for Linux
+        run: GOOS=linux GOARCH=amd64 go build -o dist/vs-file-splitter-linux src/cmd/main.go
+
+      - name: Build for Windows
+        run: GOOS=windows GOARCH=amd64 go build -o dist/vs-file-splitter.exe src/cmd/main.go
+
+      - name: Build for macOS (Intel)
+        run: GOOS=darwin GOARCH=amd64 go build -o dist/vs-file-splitter-mac src/cmd/main.go
+
+      - name: Build for macOS (ARM)
+        run: GOOS=darwin GOARCH=arm64 go build -o dist/vs-file-splitter-mac-arm src/cmd/main.go
+
+      - name: Archive artifacts
+        run: tar -czvf dist/vs-file-splitter.tar.gz dist/
+
+      - name: Get version from commit
+        id: version
+        run: echo "VERSION=$(date +'%Y.%m.%d-%H%M%S')" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: Release v${{ env.VERSION }}
+          draft: false
+          prerelease: false
+          files: |
+            dist/vs-file-splitter-linux
+            dist/vs-file-splitter.exe
+            dist/vs-file-splitter-mac
+            dist/vs-file-splitter-mac-arm
+            dist/vs-file-splitter.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

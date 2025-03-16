@@ -54,7 +54,7 @@ jobs:
         run: GOOS=darwin GOARCH=arm64 go build -o dist/vs-file-splitter-mac-arm src/cmd/main.go
 
       - name: Archive artifacts
-        run: tar -czvf dist/vs-file-splitter.tar.gz dist/
+        run: tar -czvf dist/vs-file-splitter.tar.gz -C dist $(ls dist)
 
       - name: Get version from commit
         id: version
